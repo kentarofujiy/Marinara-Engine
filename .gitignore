@@ -71,3 +71,9 @@ docker-compose.override.yaml
 
 # MCP
 .playwright-mcp
+.vscode/numbered-bookmarks.json
+SCENE_PRESENCE_VISIBILITY_TASK.md
+Dockerfilenot
+docker-compose.yml
+docker-compose.bkp
+docker-compose.yml

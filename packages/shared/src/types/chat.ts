@@ -385,6 +385,14 @@ export interface ChatMetadata {
   groupTurnPromptEnabled?: boolean;
   /** Chat members that are temporarily excluded from group prompt/generation participation. */
   inactiveCharacterIds?: string[];
+  /** Individual-mode Roleplay groups: new messages are automatically hidden from members who are not in the scene. */
+  scenePresenceEnabled?: boolean;
+  /** Chat members currently out of the scene. Only read while `scenePresenceEnabled` is on. */
+  absentCharacterIds?: string[];
+  /** When true, members disabled in chat (`inactiveCharacterIds`) also count as out of the scene. */
+  scenePresenceFollowsActivity?: boolean;
+  /** Members added mid-chat whose conversation start is stamped on the next saved message. Server-managed. */
+  scenePresencePendingJoinIds?: string[];
   /** Characters with visible roleplay sprites enabled for this chat. */
   spriteCharacterIds?: string[];
   /** Which sprite file families the roleplay Expression Engine may display. */

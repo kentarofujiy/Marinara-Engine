@@ -52,6 +52,8 @@ import {
   StickyNote,
   Eye,
   EyeOff,
+  DoorOpen,
+  DoorClosed,
   Music2,
   ShieldCheck,
   Loader2,
@@ -96,6 +98,8 @@ import {
   DEFAULT_GAME_DICE_POOL_WINDOW as DEFAULT_DICE_POOL_WINDOW,
   estimateTextTokens,
   isRoleplayCommandEnabled,
+  isScenePresenceActive,
+  resolveSceneAbsentCharacterIds,
   resolveScopedRegexMode,
 } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -1242,6 +1246,16 @@ export function ChatSettingsDrawer({
     [chatCharIds, inactiveCharacterIds],
   );
   const supportsCharacterActivityToggle = chatCharIds.length > 1 && !isGame;
+  const scenePresenceChat = {
+    mode: chatMode,
+    characterIds: chatCharIds,
+    metadata: metadata as Record<string, unknown>,
+  };
+  const scenePresenceActive = isScenePresenceActive(scenePresenceChat);
+  const sceneAbsentCharacterIds = resolveSceneAbsentCharacterIds(scenePresenceChat);
+  const manuallyAbsentCharacterIds: string[] = Array.isArray(metadata.absentCharacterIds)
+    ? metadata.absentCharacterIds.filter((id: unknown): id is string => typeof id === "string")
+    : [];
   useEffect(() => {
     if (!open || initialSection !== "autonomous" || !isConversation) return;
     const frame = window.requestAnimationFrame(() => {
@@ -2725,6 +2739,26 @@ export function ChatSettingsDrawer({
       inactiveCharacterIds: isInactive
         ? inactiveCharacterIds.filter((id) => id !== charId)
         : [...inactiveCharacterIds, charId],
+    });
+  };
+
+  const toggleScenePresence = (charId: string) => {
+    if (!scenePresenceActive) return;
+    const followsActivity = metadata.scenePresenceFollowsActivity === true;
+    if (followsActivity && inactiveCharacterIds.includes(charId)) {
+      // Disabled members are out of the scene by rule; bringing one back means enabling them too.
+      updateMeta.mutate({
+        id: chat.id,
+        inactiveCharacterIds: inactiveCharacterIds.filter((id) => id !== charId),
+        absentCharacterIds: manuallyAbsentCharacterIds.filter((id) => id !== charId),
+      });
+      return;
+    }
+    updateMeta.mutate({
+      id: chat.id,
+      absentCharacterIds: manuallyAbsentCharacterIds.includes(charId)
+        ? manuallyAbsentCharacterIds.filter((id) => id !== charId)
+        : [...manuallyAbsentCharacterIds, charId],
     });
   };
 
@@ -5805,6 +5839,33 @@ export function ChatSettingsDrawer({
                               )}
                             </div>
                           </button>
+                          {scenePresenceActive && (
+                            <button
+                              type="button"
+                              onClick={() => toggleScenePresence(c.id)}
+                              className={cn(
+                                "flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                                !sceneAbsentCharacterIds.includes(c.id) && "text-[var(--primary)]",
+                              )}
+                              aria-pressed={!sceneAbsentCharacterIds.includes(c.id)}
+                              title={
+                                sceneAbsentCharacterIds.includes(c.id)
+                                  ? localizeUi("ui.chat.chatsettingsdrawer.scenePresenceBringIntoScene")
+                                  : localizeUi("ui.chat.chatsettingsdrawer.scenePresenceSendOutOfScene")
+                              }
+                              aria-label={
+                                sceneAbsentCharacterIds.includes(c.id)
+                                  ? localizeUi("ui.chat.chatsettingsdrawer.scenePresenceBringIntoScene")
+                                  : localizeUi("ui.chat.chatsettingsdrawer.scenePresenceSendOutOfScene")
+                              }
+                            >
+                              {sceneAbsentCharacterIds.includes(c.id) ? (
+                                <DoorClosed size="0.6875rem" />
+                              ) : (
+                                <DoorOpen size="0.6875rem" />
+                              )}
+                            </button>
+                          )}
                           {supportsCharacterActivityToggle && (
                             <button
                               onClick={() => toggleCharacterActivity(c.id)}
@@ -6333,6 +6394,38 @@ export function ChatSettingsDrawer({
                     )}
                     labelClassName="text-[0.6875rem] font-medium"
                   />
+                  {chatMode === "roleplay" && (
+                    <SettingsSwitch
+                      label={localizeUi("ui.chat.chatsettingsdrawer.scenePresence")}
+                      description={localizeUi("ui.chat.chatsettingsdrawer.scenePresenceDescription")}
+                      checked={metadata.scenePresenceEnabled === true}
+                      onChange={(checked) => updateMeta.mutate({ id: chat.id, scenePresenceEnabled: checked })}
+                      labelPosition="start"
+                      className={cn(
+                        "justify-between rounded-md px-3 py-2.5 text-left",
+                        metadata.scenePresenceEnabled === true
+                          ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                          : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      )}
+                      labelClassName="text-[0.6875rem] font-medium"
+                    />
+                  )}
+                  {chatMode === "roleplay" && metadata.scenePresenceEnabled === true && (
+                    <SettingsSwitch
+                      label={localizeUi("ui.chat.chatsettingsdrawer.scenePresenceFollowsActivity")}
+                      description={localizeUi("ui.chat.chatsettingsdrawer.scenePresenceFollowsActivityDescription")}
+                      checked={metadata.scenePresenceFollowsActivity === true}
+                      onChange={(checked) => updateMeta.mutate({ id: chat.id, scenePresenceFollowsActivity: checked })}
+                      labelPosition="start"
+                      className={cn(
+                        "justify-between rounded-md px-3 py-2.5 text-left",
+                        metadata.scenePresenceFollowsActivity === true
+                          ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                          : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      )}
+                      labelClassName="text-[0.6875rem] font-medium"
+                    />
+                  )}
                   {!isConversation && (
                     <SettingsSwitch
                       label={localizeUi("ui.chat.chatsettingsdrawer.namePrefixHistory")}

@@ -83,6 +83,8 @@ Empty-Send retry starts a fresh reply. If the last message in the chat is yours 
 
 The AI context is the set of messages the app sends to the AI on each turn. Click **Hide from AI** to keep a message out of that context on future turns. The message stays visible to you and shows a **Hidden from AI** label. Click **Unhide from AI** to send it again.
 
+In an Individual-mode Roleplay group chat, **Scene Presence** can hide new messages from absent characters for you. See [Keeping absent characters out of the loop](group-chats.md#keeping-absent-characters-out-of-the-loop).
+
 In a Roleplay group chat with more than one character, **Hide from AI** opens a compact avatar chooser. Select the group avatar to hide the message from everyone, or select one or more character avatars to hide it only from those characters. Selecting everyone clears individual selections, while selecting an individual character turns off the everyone option. The crossed-eye marker on the message shows the avatars of the characters who cannot see it. In a one-character chat, the button continues to hide or unhide the message directly.
 
 You can also hide messages with `/hide [range] [name (optional)]`, for example `/hide 3-8`. In Roleplay, `/hide 3-8 Maukie` hides them only from Maukie; omitting the name hides them from everyone. `/unhide [range]` restores globally hidden messages. To undo character-specific hiding, use the avatar chooser in a group Roleplay chat, or the message's **Unhide from AI** action in a one-character Roleplay chat. Message numbers start at 1, counting from the first message in the chat. See [Slash Commands Reference](slash-commands.md) for formats and examples.

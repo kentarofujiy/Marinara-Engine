@@ -40,6 +40,7 @@ import {
   formatRpgStatsForPrompt,
   normalizeRpgStatPools,
   characterDataSchema,
+  isScenePresenceActive,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -1135,7 +1136,26 @@ export async function chatsRoutes(app: FastifyInstance) {
             const previousEvents = Array.isArray(current.advancedMemoryRosterChanges)
               ? current.advancedMemoryRosterChanges
               : [];
+            // Scene presence: a mid-chat joiner only knows the story from their next message on.
+            const readPresenceIds = (value: unknown) =>
+              Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+            const scenePresencePatch =
+              current.scenePresenceEnabled === true
+                ? {
+                    absentCharacterIds: readPresenceIds(current.absentCharacterIds).filter((id) => nextSet.has(id)),
+                    scenePresencePendingJoinIds: Array.from(
+                      new Set([
+                        ...readPresenceIds(current.scenePresencePendingJoinIds),
+                        ...(hasStartedChat &&
+                        isScenePresenceActive({ mode: existing.mode, characterIds: nextIds, metadata: current })
+                          ? addedIds
+                          : []),
+                      ]),
+                    ).filter((id) => nextSet.has(id)),
+                  }
+                : {};
             return {
+              ...scenePresencePatch,
               advancedMemoryRosterChanges: [
                 ...previousEvents,
                 ...addedIds.map((characterId) => ({ characterId, action: "joined", afterMessageId })),
@@ -1263,6 +1283,20 @@ export async function chatsRoutes(app: FastifyInstance) {
         new Set((incoming.inactiveCharacterIds as string[]).filter((id) => validIds.has(id))),
       );
     }
+    if (incoming.absentCharacterIds !== undefined) {
+      if (
+        !Array.isArray(incoming.absentCharacterIds) ||
+        !incoming.absentCharacterIds.every((id) => typeof id === "string")
+      ) {
+        return reply.status(400).send({ error: "absentCharacterIds must be an array of strings" });
+      }
+      const validIds = new Set(resolveChatCharacterIds(chat.characterIds));
+      incoming.absentCharacterIds = Array.from(
+        new Set((incoming.absentCharacterIds as string[]).filter((id) => validIds.has(id))),
+      );
+    }
+    // The join queue is server-managed; a client echo of stale metadata must not overwrite it.
+    delete incoming.scenePresencePendingJoinIds;
     if (incoming.excludedLorebookIds !== undefined) {
       if (
         !Array.isArray(incoming.excludedLorebookIds) ||

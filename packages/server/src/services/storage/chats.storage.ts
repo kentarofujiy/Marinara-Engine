@@ -60,6 +60,7 @@ import {
 } from "../import/import-timestamps.js";
 import { type CharacterSchedules, type WeekSchedule } from "../conversation/schedule.service.js";
 import type { ConversationStatusOverride } from "@marinara-engine/shared";
+import { applyScenePresenceToMessageExtra } from "@marinara-engine/shared";
 import { resolveConversationTimeZone } from "../conversation/timezone.js";
 import { logger } from "../../lib/logger.js";
 import { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } from "../image/gallery-file-lifecycle.js";
@@ -1883,13 +1884,29 @@ export function createChatsStorage(db: DB) {
       const resolvedTimestamp = resolveTimestamps(timestampOverrides).createdAt;
       const explicitTimestamp = normalizeTimestampOverrides(timestampOverrides)?.createdAt;
       const chatRows = await db
-        .select({ lastMessageAt: chats.lastMessageAt })
+        .select({
+          lastMessageAt: chats.lastMessageAt,
+          mode: chats.mode,
+          characterIds: chats.characterIds,
+          metadata: chats.metadata,
+        })
         .from(chats)
         .where(eq(chats.id, input.chatId))
         .limit(1);
       const timestamp = explicitTimestamp
         ? resolvedTimestamp
         : ensureTimestampAfter(resolvedTimestamp, chatRows[0]?.lastMessageAt);
+      // Single live messages record who was in the scene; batch inserts (imports, branches) keep stored visibility.
+      const sceneChat = chatRows[0]
+        ? {
+            mode: chatRows[0].mode,
+            characterIds: parseCharacterIds(chatRows[0].characterIds),
+            metadata: parseMetadata(chatRows[0].metadata),
+          }
+        : null;
+      const inputExtra = sceneChat
+        ? applyScenePresenceToMessageExtra(parseExtraRecord(input.extra), sceneChat, input.characterId)
+        : parseExtraRecord(input.extra);
       await db.insert(messages).values({
         id,
         chatId: input.chatId,
@@ -1898,7 +1915,7 @@ export function createChatsStorage(db: DB) {
         content: input.content,
         activeSwipeIndex: 0,
         extra: JSON.stringify({
-          ...parseExtraRecord(input.extra),
+          ...inputExtra,
           displayText: null,
           isGenerated: input.role !== "user",
           tokenCount: null,
@@ -1912,10 +1929,28 @@ export function createChatsStorage(db: DB) {
         messageId: id,
         index: 0,
         content: input.content,
-        extra: JSON.stringify(parseExtraRecord(input.extra)),
+        extra: JSON.stringify(inputExtra),
         createdAt: timestamp,
       });
       await db.update(chats).set({ lastMessageAt: timestamp, updatedAt: timestamp }).where(eq(chats.id, input.chatId));
+      const pendingJoinIds = sceneChat?.metadata.scenePresencePendingJoinIds;
+      if (
+        Array.isArray(pendingJoinIds) &&
+        pendingJoinIds.length > 0 &&
+        Array.isArray(inputExtra.conversationStartForCharacterIds)
+      ) {
+        const stampedStarts = inputExtra.conversationStartForCharacterIds as string[];
+        await this.patchMetadata(
+          input.chatId,
+          (current) => {
+            const pending = Array.isArray(current.scenePresencePendingJoinIds)
+              ? current.scenePresencePendingJoinIds.filter((id) => !stampedStarts.includes(id as string))
+              : [];
+            return { scenePresencePendingJoinIds: pending };
+          },
+          { touchUpdatedAt: false },
+        );
+      }
       return this.getMessage(id);
     },
 

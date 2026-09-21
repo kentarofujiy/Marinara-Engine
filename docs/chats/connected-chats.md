@@ -10,6 +10,8 @@ Marinara Engine (called Marinara after this) has two separate features that let 
 
 Once linked, the Conversation side automatically reads the linked story chat's recent messages. It pulls them into its own context every turn. This is the automatic direction of the link.
 
+The Conversation only reads story messages its characters are allowed to see. Messages hidden with **Hide from AI** are left out. Roleplay messages hidden from a character, including those hidden by [Scene Presence](group-chats.md#keeping-absent-characters-out-of-the-loop), are left out for that character. In an **Individual** group Conversation, each character reads only the story they were allowed to see. In a **Grouped** Conversation, all characters share one reply, so a message hidden from any of them is left out for all. Per-character hiding only applies when the Conversation uses the same character cards as the Roleplay.
+
 The story chat (the Roleplay or Game) does not automatically read the Conversation's messages back. To send information the other way, a character uses special tags. Those tags are described further down.
 
 A common use: you run an immersive Roleplay or Game in one chat, and a casual out-of-character (OOC) direct-message chat in a Conversation. The OOC chat stays aware of the story, so you can talk about it as it happens.

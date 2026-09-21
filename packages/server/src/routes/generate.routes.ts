@@ -2332,6 +2332,9 @@ export async function generateRoutes(app: FastifyInstance) {
         let conversationContextBlocksByCharacterId = new Map<string, string>();
         let conversationCrossChatAwarenessEnabled = false;
         let conversationScopesAwarenessToResponder = false;
+        // Connected roleplay excerpt shared by the turn, and a rebuild scoped to one responder's knowledge.
+        let conversationConnectedChatBlock: string | null = null;
+        let buildConnectedChatBlockForResponder: ((characterId: string) => Promise<string | null>) | null = null;
         let conversationLorebookBlockValue = "";
         let conversationMemoriesBlockValue = "";
         let conversationReplyRulesBlockValue = "";
@@ -3269,8 +3272,8 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           }
 
-          const { connectedChatBlock, systemPromptAppend: connectedChatSystemPrompt } =
-            await resolveConversationConnectedChatContext({
+          const resolveConnectedChatContextFor = (audienceCharacterIds: string[]) =>
+            resolveConversationConnectedChatContext({
               connectedChatId: chat.connectedChatId,
               conversationCommandsEnabled,
               chatMeta,
@@ -3279,7 +3282,15 @@ export async function generateRoutes(app: FastifyInstance) {
               chars,
               gameStateStore,
               wrapFormat,
+              audienceCharacterIds,
             });
+          const { connectedChatBlock, systemPromptAppend: connectedChatSystemPrompt } =
+            await resolveConnectedChatContextFor(characterIds);
+          conversationConnectedChatBlock = connectedChatBlock;
+          if (connectedChatBlock && conversationScopesAwarenessToResponder) {
+            buildConnectedChatBlockForResponder = async (characterId) =>
+              (await resolveConnectedChatContextFor([characterId])).connectedChatBlock;
+          }
           if (connectedChatSystemPrompt) {
             conversationSystemPrompt += "\n\n" + connectedChatSystemPrompt;
           }
@@ -6569,6 +6580,18 @@ export async function generateRoutes(app: FastifyInstance) {
           // and a merged generation that may voice several characters at once
           // stays on the hand-free spectator view.
           let gameAwareMessagesForGen = await prepareConversationLorebookForResponder(targetCharId, messagesForGen);
+          if (buildConnectedChatBlockForResponder && conversationConnectedChatBlock && targetCharId) {
+            // The shared excerpt drops anything hidden from any group member; each responder sees what they witnessed.
+            const sharedBlock = conversationConnectedChatBlock;
+            const responderBlock = await buildConnectedChatBlockForResponder(targetCharId);
+            if (responderBlock && responderBlock !== sharedBlock) {
+              gameAwareMessagesForGen = gameAwareMessagesForGen.map((message) =>
+                message.content.includes(sharedBlock)
+                  ? { ...message, content: message.content.split(sharedBlock).join(responderBlock) }
+                  : message,
+              );
+            }
+          }
           if (conversationScopesAwarenessToResponder && targetCharId) {
             let responderAwarenessBlock: string | null = null;
             if (conversationCrossChatAwarenessEnabled && !input.regenerateMessageId) {

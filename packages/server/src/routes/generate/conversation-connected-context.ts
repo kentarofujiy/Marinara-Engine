@@ -4,7 +4,14 @@ import { sanitizeConnectedGameTranscript } from "../../services/generation/gener
 import { isConversationCommandEnabled } from "../../services/generation/conversation-command-runtime.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
 import { sanitizePromptLeaf } from "../../services/prompt/prompt-escaping.js";
-import { parseGameStateRow } from "./generate-route-utils.js";
+import { filterPromptMessagesForCharacterAudience } from "../../services/generation/prompt-message-scope.js";
+import {
+  getMessageConversationStartCharacterIds,
+  getMessageHiddenFromAICharacterIds,
+  isMessageHiddenFromAI,
+  parseExtra,
+  parseGameStateRow,
+} from "./generate-route-utils.js";
 
 type ConnectedChatRow = {
   id: string;
@@ -15,10 +22,38 @@ type ConnectedChatRow = {
 };
 
 type ConnectedChatMessage = {
+  id?: string | null;
   role?: string | null;
   characterId?: string | null;
   content?: unknown;
+  extra?: unknown;
 };
+
+const CONNECTED_TRANSCRIPT_LIMIT = 20;
+
+function isPromptVisibleConnectedMessage(message: ConnectedChatMessage): boolean {
+  return !isMessageHiddenFromAI(message) && parseExtra(message.extra).commandOnly !== true;
+}
+
+/** The connected roleplay's recent messages, as visible to the conversation's characters (same rules as the roleplay prompt). */
+function selectVisibleRoleplayMessages(
+  messages: ConnectedChatMessage[],
+  audienceCharacterIds: string[],
+): ConnectedChatMessage[] {
+  const candidates = messages.filter(isPromptVisibleConnectedMessage);
+  const scoped = filterPromptMessagesForCharacterAudience(
+    candidates.map((message, index) => ({
+      id: String(index),
+      role: "user" as const,
+      content: "-",
+      contextKind: "history" as const,
+      hiddenFromAICharacterIds: getMessageHiddenFromAICharacterIds(message),
+      conversationStartForCharacterIds: getMessageConversationStartCharacterIds(message),
+    })),
+    audienceCharacterIds,
+  );
+  return scoped.map((message) => candidates[Number(message.id)]!).slice(-CONNECTED_TRANSCRIPT_LIMIT);
+}
 
 type ConnectedCharacterRow = {
   data?: unknown;
@@ -47,6 +82,8 @@ export async function resolveConversationConnectedChatContext(args: {
   chars: ConnectedCharactersStore;
   gameStateStore: ConnectedGameStateStore;
   wrapFormat: WrapFormat;
+  /** Conversation characters reading the connected roleplay; messages hidden from any of them are left out. */
+  audienceCharacterIds?: string[];
 }): Promise<{ connectedChatBlock: string | null; systemPromptAppend: string | null }> {
   if (!args.connectedChatId) return { connectedChatBlock: null, systemPromptAppend: null };
 
@@ -62,7 +99,7 @@ export async function resolveConversationConnectedChatContext(args: {
 
   if (connectedChat && connectedChat.mode === "roleplay") {
     const rpMessages = await args.chats.listMessages(connectedChat.id);
-    const recentRp = rpMessages.slice(-20);
+    const recentRp = selectVisibleRoleplayMessages(rpMessages, args.audienceCharacterIds ?? []);
 
     const rpCharIds: string[] =
       typeof connectedChat.characterIds === "string"
@@ -144,7 +181,7 @@ export async function resolveConversationConnectedChatContext(args: {
       : [];
     const latestSummary = storedSummaries[storedSummaries.length - 1] ?? null;
     const gameMessages = await args.chats.listMessages(connectedChat.id);
-    const recentGame = gameMessages.slice(-20);
+    const recentGame = gameMessages.filter(isPromptVisibleConnectedMessage).slice(-CONNECTED_TRANSCRIPT_LIMIT);
     const latestConnectedState =
       (await args.gameStateStore.getLatestCommitted(connectedChat.id)) ??
       (await args.gameStateStore.getLatest(connectedChat.id));

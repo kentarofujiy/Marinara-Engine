@@ -66,6 +66,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "trackerStatIconOverrides",
   "groupScenarioOverride",
   "groupScenarioText",
+  // Scene presence rosters name this chat's members; the on/off toggles stay profileable.
+  "absentCharacterIds",
+  "scenePresencePendingJoinIds",
   "characterSchedules",
   "scheduleWeekStart",
   "spotifyRecentTracks",

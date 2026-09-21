@@ -95,6 +95,26 @@ Two more toggles appear in **Individual** mode:
 
 - **Add Turn To Prompt** is on by default. It adds a short instruction naming which character should reply this turn.
 - **Name Prefix History** is off by default. It changes how past messages are labeled with speaker names before they are sent to the model. Leave it off unless a character keeps mixing up who said what.
+- **Scene Presence** is off by default. See [Keeping absent characters out of the loop](#keeping-absent-characters-out-of-the-loop).
+
+### Keeping absent characters out of the loop
+
+**Scene Presence** stops characters from knowing about scenes they were not part of. It works only in **Individual** mode, where each character gets their own reply.
+
+Turn on **Scene Presence** in the **Group Chat** section. A door icon then appears on each member row in the **Characters** section.
+
+- Click the open door to send a character out of the scene. The tooltip reads **Send out of the scene**.
+- Click the closed door to bring them back. The tooltip reads **Bring into the scene**.
+
+Every new message is automatically hidden from characters who are out of the scene, as if you had used **Hide from AI** on it for those characters. Nothing changes for messages that already exist. When a character comes back, they see new messages again, but the ones from while they were away stay hidden from them. You can still change any single message with its **Hide from AI** button.
+
+Turn on **Disabled Characters Leave the Scene** to also treat characters disabled with the eye icon as out of the scene. Bringing a disabled character back into the scene also enables them.
+
+When you add a new character to a chat that already has messages, their memory of the chat starts at the next message. They do not see anything from before they joined.
+
+Branches and imported chats keep the visibility their messages already had. Scene Presence does not change them.
+
+A Conversation chat [connected](connected-chats.md) to this Roleplay follows the same visibility, so an absent character cannot learn about the scene there either.
 
 ### Scenario Override
 
@@ -113,9 +133,11 @@ One note for reuse: the **Scenario Override** text is tied to this one chat. It 
 | **Response Order** (Sequential / Smart / Manual) | Group Chat section, Individual mode | Sequential |
 | **Add Turn To Prompt** | Group Chat section, Individual mode | On |
 | **Name Prefix History** | Group Chat section, Individual mode | Off |
+| **Scene Presence** | Group Chat section, Individual mode (Roleplay) | Off |
+| **Disabled Characters Leave the Scene** | Group Chat section, Scene Presence on | Off |
 | **Scenario Override** | Group Chat section | Empty (off) |
 
-Most of these settings are saved into settings profiles, so you can reuse them. The one exception is **Scenario Override**, which stays with the single chat.
+Most of these settings are saved into settings profiles, so you can reuse them. The exceptions are **Scenario Override** and which characters are out of the scene; both stay with the single chat.
 
 ## Who speaks: Conversation mode
 

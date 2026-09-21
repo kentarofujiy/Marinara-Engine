@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Individual-mode Roleplay group chats can turn on Scene Presence. New messages are then automatically hidden from characters marked out of the scene, and characters added mid-chat only know the story from the next message on.
+- Conversation chats connected to a Roleplay or Game no longer read story messages hidden with Hide from AI, or Roleplay messages hidden from the replying character. In Individual group Conversations, each character reads only what they were allowed to see.
 - Custom agent outputs now show separate public-output and private-context editors under the same spoiler protection. Responses that omit private context retain the previous visible turn’s value (#6254).
 - Copied Support Diagnostics include only the latest five relevant client events, omitting routine visibility events and keeping reports shorter while preserving the full local recovery history (#6261).
 - Character Library and Characters panel token estimates include the full character card, including example messages, alternate greetings, instructions, and embedded lore (#6255).
